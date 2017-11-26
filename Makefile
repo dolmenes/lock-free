@@ -9,7 +9,7 @@ release: CXXFLAGS+=-O2 -fvisibility-inlines-hidden
 release: test
 
 test: test.cpp lfpool.hpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $<
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $< -lpthread
 
 clean:
 	rm -f test
