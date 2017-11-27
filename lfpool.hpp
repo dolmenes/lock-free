@@ -1,3 +1,4 @@
+
 #ifndef LFPOOL_HPP
 #define LFPOOL_HPP
 
@@ -27,40 +28,43 @@ template< typename T > class lfPool {
   size_t slotsCount;
   volatile Block *block;
 
-  volatile Block *newBlock( ) {
+  Block *newBlock( ) noexcept( false ) {
     Block *blk = reinterpret_cast< Block * >( new char[sizeof( Block ) + ( sizeof( Slot ) * ( slotsCount - 1 ) )] );
     for( size_t idx = 0; idx < slotsCount; ++idx ) {
       blk->slots[idx].busy.clear( );
     }
 
-    return const_cast< volatile Block * >( blk );
+    return blk;
   }
 
 public:
-  ~lfPool( ) {
+  ~lfPool( ) noexcept( std::is_nothrow_destructible< T >::value ) {
     Block *cur = const_cast< Block * >( block );
 
-    while( cur ) {
-      for( size_t idx = 0; idx < slotsCount; ++idx ) {
-        if( cur->slots[idx].busy.test_and_set( ::std::memory_order_relaxed ) ) {
-          cur->slots[idx].data.~T( );
+    if( !std::is_trivially_destructible< T >::value ) {
+      while( cur ) {
+        for( size_t idx = 0; idx < slotsCount; ++idx ) {
+          if( cur->slots[idx].busy.test_and_set( ::std::memory_order_relaxed ) ) {
+            cur->slots[idx].data.~T( );
+          }
         }
+
+        Block *tmp = cur->next;
+        delete cur;
+        cur = tmp;
       }
-      Block *tmp = cur->next;
-      delete cur;
-      cur = tmp;
-    }
+    } 
   }
-  lfPool( size_t count ) : slotsCount( count ), block( nullptr ) {
+  lfPool( size_t count ) noexcept( false ) : slotsCount( count ), block( nullptr ) {
     assert( count );
 
-    volatile Block *tmp = newBlock( );
+    Block *tmp = newBlock( );
     tmp->next = nullptr;
 
-    block = tmp;
+    block = const_cast< volatile Block * >( tmp );
   }
 
-  T *get( bool = true ) {
+  T *get( bool = true ) noexcept( false ) {
     Block *blk = const_cast< Block * >( block );
 
     while( blk ) {
@@ -77,10 +81,18 @@ public:
 
     return nullptr;
   }
-  void unget( const T *ptr ) {
+  template< typename... ARGS > T *emplace( ARGS... args ) noexcept( false ) {
+    T *tmp = get( );
+  
+    return new (tmp) T( args... );
+  }
+  void unget( const T *ptr ) noexcept( std::is_nothrow_destructible< T >::value ) {
     Slot *sl = reinterpret_cast< Slot * >( reinterpret_cast< std::atomic_flag * >( ptr ) - 1 );
 
-    sl->data.~T( );
+    if( !std::is_trivially_destructible< T >::value ) {
+      sl->data.~T( );
+    }
+ 
     sl->busy.clear( std::memory_order_release );
   }
 };
@@ -88,4 +100,3 @@ public:
 }
 
 #endif
-
