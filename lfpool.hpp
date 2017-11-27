@@ -1,4 +1,3 @@
-
 #ifndef LFPOOL_HPP
 #define LFPOOL_HPP
 
@@ -21,20 +20,20 @@ template< typename T > class lfPool {
   };
 
   struct Block {
-    Block *next;
+    volatile Block *next;
     Slot slots[1];
   };
 
   size_t slotsCount;
   volatile Block *block;
 
-  Block *newBlock( ) noexcept( false ) {
+  volatile Block *newBlock( ) noexcept( false ) {
     Block *blk = reinterpret_cast< Block * >( new char[sizeof( Block ) + ( sizeof( Slot ) * ( slotsCount - 1 ) )] );
     for( size_t idx = 0; idx < slotsCount; ++idx ) {
       blk->slots[idx].busy.clear( );
     }
 
-    return blk;
+    return const_cast< volatile Block * >( blk );
   }
 
 public:
@@ -49,16 +48,14 @@ public:
           }
         }
 
-        Block *tmp = cur->next;
+        Block *tmp = const_cast< Block * >( cur->next );
         delete cur;
         cur = tmp;
       }
     } 
   }
-  lfPool( size_t count ) noexcept( false ) : slotsCount( count ), block( nullptr ) {
-    assert( count );
-
-    Block *tmp = newBlock( );
+  explicit lfPool( size_t count ) noexcept( false ) : slotsCount( count ), block( nullptr ) {
+    Block *tmp = const_cast< Block * >( newBlock( ) );
     tmp->next = nullptr;
 
     block = const_cast< volatile Block * >( tmp );
@@ -74,7 +71,7 @@ public:
         }
       }
 
-      blk = blk->next;
+      blk = const_cast< Block * >( blk->next );
     }
 
     throw std::bad_alloc( );
