@@ -1,4 +1,4 @@
-#define THREADS 3
+#define THREADS 100
 #define ITEMS 1000
 
 #include <array>
@@ -22,10 +22,12 @@ void testFunction( int name, Pool *p, Vector *v ) {
     int *pos = p->get( );
     int val = rand( );
 
-    v->push_back( std::make_pair( pos, val ) );
+    v->operator[]( items ) = std::make_pair( pos, val );
 
-    if( rand( ) % 10 == 1 ) {
+    if( rand( ) % 5 == 1 ) {
+      std::cout << "Pausando hilo " << name << ".\n";
       std::this_thread::yield( );
+      std::cout << "Continuando hilo " << name << ".\n";
     }
   }
 
@@ -35,7 +37,6 @@ void testFunction( int name, Pool *p, Vector *v ) {
 bool checkVector( const Vector &v ) {
   for( auto const &idx: v ) {
     if( *idx.first != idx.second ) {
-      std::cout << "Error en la posición " << idx - v.begin( ) << "\n.";
       return false;
     }
   }
