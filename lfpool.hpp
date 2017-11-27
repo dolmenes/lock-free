@@ -80,6 +80,7 @@ public:
   void unget( const T *ptr ) {
     Slot *sl = reinterpret_cast< Slot * >( reinterpret_cast< std::atomic_flag * >( ptr ) - 1 );
 
+    sl->data.~T( );
     sl->busy.clear( std::memory_order_release );
   }
 };
