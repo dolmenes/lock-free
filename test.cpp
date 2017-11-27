@@ -1,7 +1,5 @@
-#define THREADS 1
-#define MAX_SLEEP 5
+#define THREADS 5
 #define ITEMS 1000
-#define LOOP 100
 
 #include <array>
 #include <vector>
@@ -18,25 +16,22 @@ typedef std::pair< int *, int > Data;
 typedef std::vector< std::pair< int *, int > > Vector;
 
 void testFunction( int name, Pool *p, Vector *v ) {
-  int items = 0;
-  int loop = 0;
-
   std::cout << "Iniciando hilo " << name << ".\n";
 
-  while( items < ITEMS ) {
-    while( loop < LOOP ) {
-      int *pos = p->get( );
-      int val = rand( );
+  for( int items = 0; items < ITEMS; ++items ) {
+    int *pos = p->get( );
+    int val = rand( );
 
-      v->push_back( std::make_pair( pos, val ) );
+    v->push_back( std::make_pair( pos, val ) );
+
+    if( rand( ) % 10 == 1 ) {
+      std::cout << "Pausando hilo " << name << ".\n";
+      std::this_thread::yield( );
+      std::cout << "Continuando hilo " << name << ".\n";
     }
-
-    std::cout << "Pausando hilo " << name << ".\n";
-    sleep( rand( ) % MAX_SLEEP );
-    std::cout << "Continuando hilo " << name << ".\n";
   }
 
-  std::cout << "Hilo " << name << "finalizado.\n";
+  std::cout << "Hilo " << name << " finalizado.\n";
 }
 
 bool checkVector( const Vector &v ) {
@@ -49,24 +44,16 @@ bool checkVector( const Vector &v ) {
 }
 
 int main( ) {
-  lfs::lfPool< int > pool( ( ITEMS * THREADS ) + 1 );
+  lfs::lfPool< int > pool( ( ITEMS * THREADS ) + 10 );
   std::array< std::thread, THREADS > threads;
   std::array< Vector, THREADS > vectors;
 
-  std::cout << "Tamaño de int: " << sizeof( int ) << ".\n";
-  std::cout << "Tamaño de std::atomic_flag: " << sizeof( std::atomic_flag ) << ".\n";
-  std::cout << "Tamaño de Block: " << pool.blockSize( ) << ".\n";
-  std::cout << "Tamaño de EmptyBlock: " << pool.blockSize( ) << ".\n";
-  std::cout << "Tamaño de Block *: " << pool.ptrSize( ) << ".\n";
-  std::cout << "Tamaño de Slot: " << pool.slotSize( ) << ".\n";
-
   for( int idx = 0; idx < THREADS; ++idx ) {
-    testFunction( idx, &pool, &vectors[idx] );
-    //threads[idx] = std::thread( testFunction, idx, &pool, &vectors[idx] );
+    threads[idx] = std::thread( testFunction, idx, &pool, &vectors[idx] );
   }
 
   for( int idx = 0; idx < THREADS; ++idx ) {
-    // threads[idx].join( );
+    threads[idx].join( );
   }
 
   {
