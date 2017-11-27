@@ -1,4 +1,4 @@
-#define THREADS 5
+#define THREADS 3
 #define ITEMS 1000
 
 #include <array>
@@ -25,9 +25,7 @@ void testFunction( int name, Pool *p, Vector *v ) {
     v->push_back( std::make_pair( pos, val ) );
 
     if( rand( ) % 10 == 1 ) {
-      std::cout << "Pausando hilo " << name << ".\n";
       std::this_thread::yield( );
-      std::cout << "Continuando hilo " << name << ".\n";
     }
   }
 
@@ -36,19 +34,22 @@ void testFunction( int name, Pool *p, Vector *v ) {
 
 bool checkVector( const Vector &v ) {
   for( auto const &idx: v ) {
-    if( *idx.first != idx.second )
+    if( *idx.first != idx.second ) {
+      std::cout << "Error en la posición " << idx - v.begin( ) << "\n.";
       return false;
+    }
   }
 
   return true;
 }
 
 int main( ) {
-  lfs::lfPool< int > pool( ( ITEMS * THREADS ) + 10 );
+  lfs::lfPool< int > pool( ITEMS * THREADS );
   std::array< std::thread, THREADS > threads;
   std::array< Vector, THREADS > vectors;
 
   for( int idx = 0; idx < THREADS; ++idx ) {
+    vectors[idx].reserve( ITEMS );
     threads[idx] = std::thread( testFunction, idx, &pool, &vectors[idx] );
   }
 
@@ -62,7 +63,6 @@ int main( ) {
       if( !checkVector( vectors[idx] ) ) {
         std::cout << "¡ ERROR ! en los datos del vector " << idx << "\n";
         error = true;
-        break;
       }
     }
 
@@ -75,4 +75,3 @@ int main( ) {
 
   return 0;
 }
-
